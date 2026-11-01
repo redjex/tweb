@@ -1,3 +1,4 @@
+import Modes from '@config/modes';
 import {unwrapEasing} from '@helpers/easings';
 import themeController from '@helpers/themeController';
 
@@ -45,8 +46,10 @@ export function computeMaxDistToMargin(e: MouseEvent, parentRect: DOMRect, rects
   )));;
 }
 
+const DUST_SLOWDOWN = 1.7;
+
 export function getTimeForDist(dist: number) {
-  return Math.max(600, Math.sqrt((dist / 160)) * 350);
+  return Math.max(600, Math.sqrt((dist / 160)) * 350) * (Modes.spoiler2 ? DUST_SLOWDOWN : 1);
 }
 
 export function toDOMRectArray(list: DOMRectList) {

@@ -83,6 +83,18 @@ export async function concealMediaSpoilerWithAnimation(options: {
 }
 
 
+function getRevealSource(mediaSpoiler: HTMLElement): CanvasImageSource {
+  const parent = mediaSpoiler.parentElement;
+  if(!parent) return;
+
+  for(const element of parent.querySelectorAll<HTMLElement>('img, video, canvas')) {
+    if(mediaSpoiler.contains(element)) continue;
+    if(element instanceof HTMLImageElement && element.complete && element.naturalWidth) return element;
+    if(element instanceof HTMLVideoElement && element.readyState >= 2) return element;
+    if(element instanceof HTMLCanvasElement && element.width && element.height) return element;
+  }
+}
+
 function revealSpoilerWithAnimation(options: {
   mediaSpoiler: HTMLElement,
   event: Event
@@ -96,7 +108,7 @@ function revealSpoilerWithAnimation(options: {
 
   if(!controls || !thumbnailCanvas) return false;
 
-  const result = controls.revealWithAnimation(event, thumbnailCanvas);
+  const result = controls.revealWithAnimation(event, thumbnailCanvas, getRevealSource(mediaSpoiler));
   if(!result) return false;
 
   return result.then(() => {
@@ -243,8 +255,13 @@ function wrapMediaSpoilerWithImage(options: {
     }));
   }
 
+  if(Modes.spoiler2) {
+    container.classList.add('spoiler-2');
+  }
+
   const {canvas, readyResult} = DotRenderer.create({
     ...options,
+    thumbnail: image,
     middleware: container.middlewareHelper.get()
   });
 
