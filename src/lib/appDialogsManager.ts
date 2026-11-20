@@ -972,14 +972,18 @@ export class AppDialogsManager {
       // this.log('peer_changed total time:', performance.now() - perf);
     });
 
-    rootScope.addEventListener('filter_update', async(filter) => {
-      if(REAL_FOLDERS.has(filter.id)) {
-        return;
-      }
+    // * a folder found by an ask after the start (one made elsewhere that this client had no word of, or every
+    // * folder when the start's ask was refused) comes as a new one rather than an update: its list is made all the same
+    (['filter_update', 'filter_new'] as const).forEach((type) => {
+      rootScope.addEventListener(type, (filter) => {
+        if(REAL_FOLDERS.has(filter.id)) {
+          return;
+        }
 
-      if(!this.filtersRendered[filter.id]) {
-        this.addFilter(filter);
-      }
+        if(!this.filtersRendered[filter.id]) {
+          this.addFilter(filter);
+        }
+      });
     });
 
     // * the folders a chat is in are read off its dialog, which a row only gets anew with an update
@@ -1019,6 +1023,10 @@ export class AppDialogsManager {
       order.forEach((filterId, idx) => {
         const {indexKey, filter} = r[idx];
         const renderedFilter = this.filtersRendered[filterId];
+        // * a folder removed while its place was read is gone, with its list
+        if(!renderedFilter || !filter) {
+          return;
+        }
 
         this.xds[filterId].setIndexKey(indexKey);
 
@@ -1096,7 +1104,7 @@ export class AppDialogsManager {
     if(haveFilters) {
       await addFilters(filtersArr);
     } else {
-      addFiltersPromise = managers.filtersStorage.getDialogFilters().then(addFilters);
+      addFiltersPromise = managers.filtersStorage.getDialogFiltersToStart().then(addFilters);
     }
 
     this.doNotRenderChatList = true;
@@ -1126,6 +1134,9 @@ export class AppDialogsManager {
       this.initListeners();
       this.initedListeners = true;
     }
+
+    // * the folders came from the state: now that their events are listened to, the server's are taken
+    managers.filtersStorage.syncDialogFilters();
 
     haveFilters && this.showFiltersPromise && await wrapPromiseWithMiddleware(this.showFiltersPromise);
 
@@ -2555,7 +2566,7 @@ export class AppDialogsManager {
     //   dom.statusSpan.parentElement.classList.toggle('is-closed', !!dialog.pFlags.closed);
     // }
 
-    const hasPinnedBadge = isPinned && !isMonoforumThread && !isAllChats;
+    const showsPinned = isPinned && !isMonoforumThread && !isAllChats;
     const hasUnreadBadge = isDialogUnread;
     const hasUnreadAvatarBadge = dialogElement.isMainList !== false &&
       this.xd !== this.xds[FOLDER_ID_ARCHIVE] &&
@@ -2604,7 +2615,7 @@ export class AppDialogsManager {
 
     dialogElement.setBadgeState({
       muted: isMuted,
-      pinned: hasPinnedBadge,
+      pinned: showsPinned,
       unread: hasUnreadBadge && !hasOnlyGram,
       unreadText: unreadBadgeText,
       unreadCount,
@@ -2623,16 +2634,6 @@ export class AppDialogsManager {
       const notVisited = isDialogUnread && unreadBadgeText === ' ';
       dom.unreadBadge.classList.toggle('not-visited', notVisited);
     }
-
-    // if(isPinned && !isUnread && !isMention) {
-    //   dom.unreadBadge.classList.add('badge-icon', 'dialog-pinned-icon');
-    //   dom.unreadBadge.replaceChildren(Icon('chatspinned'));
-    // } else if(dom.unreadBadge) {
-    //   dom.unreadBadge.classList.remove('badge-icon', 'dialog-pinned-icon');
-    //   if(!unreadBadgeText) {
-    //     dom.unreadBadge.replaceChildren();
-    //   }
-    // }
 
     deferred.resolve();
   }
